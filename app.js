@@ -507,22 +507,39 @@ document.getElementById('timer-reset').addEventListener('click', () => {
     updateTimerDisplay();
 });
 
-// Audio feedback
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// Audio feedback (lazy-init to avoid mobile browser restrictions)
+let audioCtx = null;
+function getAudioCtx() {
+    if (!audioCtx) {
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            console.warn('AudioContext not available:', e);
+            return null;
+        }
+    }
+    return audioCtx;
+}
 
 function playTone(freq, duration, count = 1) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
     for (let i = 0; i < count; i++) {
         setTimeout(() => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.frequency.value = freq;
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.start(audioCtx.currentTime);
-            osc.stop(audioCtx.currentTime + duration);
+            try {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + duration);
+            } catch (e) {
+                // Audio playback failed, ignore
+            }
         }, i * 300);
     }
 }
@@ -542,7 +559,7 @@ goalForm.addEventListener('submit', async (e) => {
         target: parseFloat(document.getElementById('goal-target').value) || 0,
         unit: document.getElementById('goal-unit').value.trim(),
         current: 0,
-        deadline: document.getElementById('goal-deadline').value || null,
+        deadline: document.getElementById('goal-deadline').value ? document.getElementById('goal-deadline').value : null,
         completed: false,
     };
 
