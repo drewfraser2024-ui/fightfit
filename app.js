@@ -3,49 +3,101 @@ const SUPABASE_URL = 'https://eyiniiiwjdkzxozqwwqi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5aW5paWl3amRrenhvenF3d3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDY5MzcsImV4cCI6MjA4NjU4MjkzN30.mcl-KYDnOIVAZZWZtvIAvkphayrqFvjayQo9UVsRBI0';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+function handleStoreError(action, error) {
+    console.error(`Failed while ${action}:`, error);
+    showToast(`Could not ${action}.`);
+}
+
 // ===== DATA LAYER (Supabase) =====
 const Store = {
     async getWorkouts() {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('workouts')
             .select('*')
             .order('date', { ascending: false });
+        if (error) {
+            handleStoreError('loading workouts', error);
+            return [];
+        }
         return data || [];
     },
     async saveWorkout(w) {
-        await supabase.from('workouts').insert(w);
+        const { error } = await supabase.from('workouts').insert(w);
+        if (error) {
+            handleStoreError('saving workout', error);
+            return false;
+        }
+        return true;
     },
     async deleteWorkout(id) {
-        await supabase.from('workouts').delete().eq('id', id);
+        const { error } = await supabase.from('workouts').delete().eq('id', id);
+        if (error) {
+            handleStoreError('deleting workout', error);
+            return false;
+        }
+        return true;
     },
     async getCombat() {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('combat_sessions')
             .select('*')
             .order('date', { ascending: false });
+        if (error) {
+            handleStoreError('loading combat sessions', error);
+            return [];
+        }
         return data || [];
     },
     async saveCombat(s) {
-        await supabase.from('combat_sessions').insert(s);
+        const { error } = await supabase.from('combat_sessions').insert(s);
+        if (error) {
+            handleStoreError('saving combat session', error);
+            return false;
+        }
+        return true;
     },
     async deleteCombat(id) {
-        await supabase.from('combat_sessions').delete().eq('id', id);
+        const { error } = await supabase.from('combat_sessions').delete().eq('id', id);
+        if (error) {
+            handleStoreError('deleting combat session', error);
+            return false;
+        }
+        return true;
     },
     async getGoals() {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('goals')
             .select('*')
             .order('created_at', { ascending: false });
+        if (error) {
+            handleStoreError('loading goals', error);
+            return [];
+        }
         return data || [];
     },
     async saveGoal(g) {
-        await supabase.from('goals').insert(g);
+        const { error } = await supabase.from('goals').insert(g);
+        if (error) {
+            handleStoreError('saving goal', error);
+            return false;
+        }
+        return true;
     },
     async updateGoal(id, updates) {
-        await supabase.from('goals').update(updates).eq('id', id);
+        const { error } = await supabase.from('goals').update(updates).eq('id', id);
+        if (error) {
+            handleStoreError('updating goal', error);
+            return false;
+        }
+        return true;
     },
     async deleteGoal(id) {
-        await supabase.from('goals').delete().eq('id', id);
+        const { error } = await supabase.from('goals').delete().eq('id', id);
+        if (error) {
+            handleStoreError('deleting goal', error);
+            return false;
+        }
+        return true;
     },
 };
 
@@ -56,6 +108,21 @@ function uid() {
 function formatDate(iso) {
     const d = new Date(iso);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function sanitizeClassToken(value) {
+    return String(value ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '');
 }
 
 function getWeekStart() {
@@ -117,10 +184,10 @@ document.getElementById('add-exercise-btn').addEventListener('click', () => {
     entry.innerHTML = `
         <input type="text" placeholder="Exercise name" class="ex-name" required>
         <div class="ex-details">
-            <input type="number" placeholder="Sets" class="ex-sets" min="0">
-            <input type="number" placeholder="Reps" class="ex-reps" min="0">
-            <input type="number" placeholder="Weight (lbs)" class="ex-weight" min="0">
-            <input type="number" placeholder="Duration (min)" class="ex-duration" min="0">
+            <input type="number" placeholder="Sets" class="ex-sets" min="0" inputmode="numeric">
+            <input type="number" placeholder="Reps" class="ex-reps" min="0" inputmode="numeric">
+            <input type="number" placeholder="Wt (lbs)" class="ex-weight" min="0" inputmode="numeric">
+            <input type="number" placeholder="Min" class="ex-duration" min="0" inputmode="numeric">
         </div>
     `;
     exercisesContainer.appendChild(entry);
@@ -153,7 +220,8 @@ workoutForm.addEventListener('submit', async (e) => {
         date: new Date().toISOString(),
     };
 
-    await Store.saveWorkout(workout);
+    const saved = await Store.saveWorkout(workout);
+    if (!saved) return;
     workoutForm.reset();
 
     exercisesContainer.innerHTML = `
@@ -184,29 +252,38 @@ async function renderWorkoutHistory() {
 
     container.innerHTML = workouts.slice(0, 20).map(w => {
         const exList = (w.exercises || []).map(ex => {
-            let detail = ex.name;
-            if (ex.sets && ex.reps) detail += ` - ${ex.sets}x${ex.reps}`;
-            if (ex.weight) detail += ` @ ${ex.weight}lbs`;
-            if (ex.duration) detail += ` (${ex.duration}min)`;
+            let detail = escapeHtml(ex.name);
+            const sets = Number(ex.sets) || 0;
+            const reps = Number(ex.reps) || 0;
+            const weight = Number(ex.weight) || 0;
+            const duration = Number(ex.duration) || 0;
+            if (sets && reps) detail += ` - ${sets}x${reps}`;
+            if (weight) detail += ` @ ${weight}lbs`;
+            if (duration) detail += ` (${duration}min)`;
             return detail;
         }).join(', ');
 
+        const workoutId = escapeHtml(w.id);
+        const workoutType = escapeHtml(String(w.type || '').replace('-', ' '));
+        const workoutNotes = escapeHtml(w.notes);
+
         return `
             <div class="history-item">
-                <button class="delete-btn" data-id="${w.id}" data-kind="workout">&times;</button>
+                <button class="delete-btn" data-id="${workoutId}" data-kind="workout">&times;</button>
                 <div class="item-header">
-                    <span class="item-type">${w.type.replace('-', ' ')}</span>
+                    <span class="item-type">${workoutType}</span>
                     <span class="item-date">${formatDate(w.date)}</span>
                 </div>
                 <div class="item-exercises">${exList}</div>
-                ${w.notes ? `<div class="item-notes">"${w.notes}"</div>` : ''}
+                ${w.notes ? `<div class="item-notes">"${workoutNotes}"</div>` : ''}
             </div>
         `;
     }).join('');
 
     container.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-            await Store.deleteWorkout(btn.dataset.id);
+            const deleted = await Store.deleteWorkout(btn.dataset.id);
+            if (!deleted) return;
             await renderWorkoutHistory();
             updateWeeklyCount();
         });
@@ -223,6 +300,11 @@ document.querySelectorAll('.combat-tab').forEach(tab => {
         document.getElementById('combat-discipline').value = tab.dataset.discipline;
     });
 });
+
+const initialCombatTab = document.querySelector('.combat-tab.active');
+if (initialCombatTab) {
+    document.getElementById('combat-discipline').value = initialCombatTab.dataset.discipline;
+}
 
 document.querySelectorAll('.intensity-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -245,8 +327,11 @@ combatForm.addEventListener('submit', async (e) => {
         date: new Date().toISOString(),
     };
 
-    await Store.saveCombat(session);
+    const saved = await Store.saveCombat(session);
+    if (!saved) return;
+    const activeDiscipline = document.querySelector('.combat-tab.active')?.dataset.discipline || 'mma';
     combatForm.reset();
+    document.getElementById('combat-discipline').value = activeDiscipline;
     document.getElementById('combat-intensity').value = '3';
     document.querySelectorAll('.intensity-btn').forEach(b => b.classList.remove('active'));
     document.querySelector('.intensity-btn[data-val="3"]').classList.add('active');
@@ -265,24 +350,35 @@ async function renderCombatHistory() {
         return;
     }
 
-    container.innerHTML = sessions.slice(0, 20).map(s => `
-        <div class="history-item">
-            <button class="delete-btn" data-id="${s.id}" data-kind="combat">&times;</button>
-            <div class="item-header">
-                <span class="item-type">
-                    ${s.session_type.replace('-', ' ')}
-                    <span class="discipline-tag ${s.discipline}">${s.discipline.replace('-', ' ')}</span>
-                </span>
-                <span class="item-date">${formatDate(s.date)}</span>
+    container.innerHTML = sessions.slice(0, 20).map(s => {
+        const sessionId = escapeHtml(s.id);
+        const sessionType = escapeHtml(String(s.session_type || '').replace('-', ' '));
+        const disciplineText = escapeHtml(String(s.discipline || '').replace('-', ' '));
+        const disciplineClass = sanitizeClassToken(s.discipline);
+        const sessionNotes = escapeHtml(s.notes);
+        const duration = Number(s.duration) || 0;
+        const intensity = Number(s.intensity) || 0;
+
+        return `
+            <div class="history-item">
+                <button class="delete-btn" data-id="${sessionId}" data-kind="combat">&times;</button>
+                <div class="item-header">
+                    <span class="item-type">
+                        ${sessionType}
+                        <span class="discipline-tag ${disciplineClass}">${disciplineText}</span>
+                    </span>
+                    <span class="item-date">${formatDate(s.date)}</span>
+                </div>
+                <div class="item-exercises">${duration}min &bull; Intensity: ${intensity}/5</div>
+                ${s.notes ? `<div class="item-notes">"${sessionNotes}"</div>` : ''}
             </div>
-            <div class="item-exercises">${s.duration}min &bull; Intensity: ${s.intensity}/5</div>
-            ${s.notes ? `<div class="item-notes">"${s.notes}"</div>` : ''}
-        </div>
-    `).join('');
+        `;
+    }).join('');
 
     container.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-            await Store.deleteCombat(btn.dataset.id);
+            const deleted = await Store.deleteCombat(btn.dataset.id);
+            if (!deleted) return;
             await renderCombatHistory();
             updateWeeklyCount();
         });
@@ -350,6 +446,7 @@ function timerTick() {
                 timerState.phase = 'done';
                 timerState.running = false;
                 clearInterval(timerState.interval);
+                timerState.interval = null;
                 timerState.timeLeft = 0;
                 playBell(3);
                 document.getElementById('timer-start').disabled = true;
@@ -375,6 +472,7 @@ function timerTick() {
 }
 
 document.getElementById('timer-start').addEventListener('click', () => {
+    if (timerState.running) return;
     if (timerState.phase === 'ready' || timerState.phase === 'done') {
         timerState.currentRound = 1;
         timerState.phase = 'fight';
@@ -382,6 +480,7 @@ document.getElementById('timer-start').addEventListener('click', () => {
         playBell(1);
     }
     timerState.running = true;
+    if (timerState.interval) clearInterval(timerState.interval);
     timerState.interval = setInterval(timerTick, 1000);
     document.getElementById('timer-start').disabled = true;
     document.getElementById('timer-pause').disabled = false;
@@ -391,6 +490,7 @@ document.getElementById('timer-start').addEventListener('click', () => {
 document.getElementById('timer-pause').addEventListener('click', () => {
     timerState.running = false;
     clearInterval(timerState.interval);
+    timerState.interval = null;
     document.getElementById('timer-start').disabled = false;
     document.getElementById('timer-pause').disabled = true;
 });
@@ -398,6 +498,7 @@ document.getElementById('timer-pause').addEventListener('click', () => {
 document.getElementById('timer-reset').addEventListener('click', () => {
     timerState.running = false;
     clearInterval(timerState.interval);
+    timerState.interval = null;
     timerState.phase = 'ready';
     timerState.currentRound = 0;
     timerState.timeLeft = timerState.roundLength;
@@ -447,7 +548,8 @@ goalForm.addEventListener('submit', async (e) => {
 
     if (!goal.title) return;
 
-    await Store.saveGoal(goal);
+    const saved = await Store.saveGoal(goal);
+    if (!saved) return;
     goalForm.reset();
     await renderGoals();
     showToast('Goal added!');
@@ -463,44 +565,67 @@ async function renderGoals() {
     }
 
     container.innerHTML = goals.map(g => {
-        const pct = g.target > 0 ? Math.min(100, Math.round((g.current / g.target) * 100)) : 0;
+        const current = Number(g.current) || 0;
+        const target = Number(g.target) || 0;
+        const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
         const deadlineText = g.deadline
             ? `Target: ${new Date(g.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
             : '';
+        const goalId = escapeHtml(g.id);
+        const goalTitle = escapeHtml(g.title);
+        const goalUnit = escapeHtml(g.unit);
 
         return `
             <div class="goal-item ${g.completed ? 'completed' : ''}">
                 <div class="goal-header">
-                    <span class="goal-title">${g.completed ? '&#10003; ' : ''}${g.title}</span>
+                    <span class="goal-title">${g.completed ? '&#10003; ' : ''}${goalTitle}</span>
                     <span class="goal-deadline">${deadlineText}</span>
                 </div>
-                ${g.target > 0 ? `
+                ${target > 0 ? `
                     <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div>
                     <div class="goal-progress-text">
-                        <span>${g.current} ${g.unit}</span>
-                        <span>${pct}% of ${g.target} ${g.unit}</span>
+                        <span>${current} ${goalUnit}</span>
+                        <span>${pct}% of ${target} ${goalUnit}</span>
                     </div>
                 ` : ''}
                 ${!g.completed ? `
                     <div class="goal-actions">
-                        <input type="number" placeholder="Update" id="goal-update-${g.id}" min="0" step="any">
-                        <button class="btn-secondary" onclick="updateGoalProgress('${g.id}')">Update</button>
-                        <button class="btn-secondary" onclick="completeGoal('${g.id}')">&#10003; Done</button>
-                        <button class="btn-danger" onclick="deleteGoal('${g.id}')">Delete</button>
+                        <input type="number" placeholder="Update" class="goal-update-input" min="0" step="any">
+                        <button class="btn-secondary goal-update-btn" data-id="${goalId}">Update</button>
+                        <button class="btn-secondary goal-complete-btn" data-id="${goalId}">&#10003; Done</button>
+                        <button class="btn-danger goal-delete-btn" data-id="${goalId}">Delete</button>
                     </div>
                 ` : `
                     <div class="goal-actions">
-                        <button class="btn-danger" onclick="deleteGoal('${g.id}')">Delete</button>
+                        <button class="btn-danger goal-delete-btn" data-id="${goalId}">Delete</button>
                     </div>
                 `}
             </div>
         `;
     }).join('');
+
+    container.querySelectorAll('.goal-update-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const input = btn.closest('.goal-actions')?.querySelector('.goal-update-input');
+            await window.updateGoalProgress(btn.dataset.id, input?.value);
+        });
+    });
+
+    container.querySelectorAll('.goal-complete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            await window.completeGoal(btn.dataset.id);
+        });
+    });
+
+    container.querySelectorAll('.goal-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            await window.deleteGoal(btn.dataset.id);
+        });
+    });
 }
 
-window.updateGoalProgress = async function(id) {
-    const input = document.getElementById(`goal-update-${id}`);
-    const val = parseFloat(input.value);
+window.updateGoalProgress = async function(id, rawValue) {
+    const val = parseFloat(rawValue);
     if (isNaN(val)) return;
 
     const goals = await Store.getGoals();
@@ -510,7 +635,8 @@ window.updateGoalProgress = async function(id) {
         if (goal.target > 0 && val >= goal.target) {
             updates.completed = true;
         }
-        await Store.updateGoal(id, updates);
+        const updated = await Store.updateGoal(id, updates);
+        if (!updated) return;
         await renderGoals();
         showToast('Progress updated!');
     }
@@ -520,14 +646,16 @@ window.completeGoal = async function(id) {
     const goals = await Store.getGoals();
     const goal = goals.find(g => g.id === id);
     if (goal) {
-        await Store.updateGoal(id, { completed: true, current: goal.target || goal.current });
+        const updated = await Store.updateGoal(id, { completed: true, current: goal.target || goal.current });
+        if (!updated) return;
         await renderGoals();
         showToast('Goal completed!');
     }
 };
 
 window.deleteGoal = async function(id) {
-    await Store.deleteGoal(id);
+    const deleted = await Store.deleteGoal(id);
+    if (!deleted) return;
     await renderGoals();
 };
 

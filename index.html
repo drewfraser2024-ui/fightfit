@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d0d0d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
     <title>FightFit - Fitness & Combat Sports Tracker</title>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -40,10 +45,10 @@
                         <div class="exercise-entry">
                             <input type="text" placeholder="Exercise name" class="ex-name" required>
                             <div class="ex-details">
-                                <input type="number" placeholder="Sets" class="ex-sets" min="0">
-                                <input type="number" placeholder="Reps" class="ex-reps" min="0">
-                                <input type="number" placeholder="Weight (lbs)" class="ex-weight" min="0">
-                                <input type="number" placeholder="Duration (min)" class="ex-duration" min="0">
+                                <input type="number" placeholder="Sets" class="ex-sets" min="0" inputmode="numeric">
+                                <input type="number" placeholder="Reps" class="ex-reps" min="0" inputmode="numeric">
+                                <input type="number" placeholder="Wt (lbs)" class="ex-weight" min="0" inputmode="numeric">
+                                <input type="number" placeholder="Min" class="ex-duration" min="0" inputmode="numeric">
                             </div>
                         </div>
                     </div>
@@ -91,7 +96,7 @@
 
                     <div class="form-group">
                         <label for="combat-duration">Duration (min)</label>
-                        <input type="number" id="combat-duration" min="1" placeholder="60">
+                        <input type="number" id="combat-duration" min="1" placeholder="60" inputmode="numeric">
                     </div>
 
                     <div class="form-group">
@@ -174,7 +179,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="goal-target">Target Value</label>
-                            <input type="number" id="goal-target" placeholder="225" min="0">
+                            <input type="number" id="goal-target" placeholder="225" min="0" inputmode="numeric">
                         </div>
                         <div class="form-group">
                             <label for="goal-unit">Unit</label>
