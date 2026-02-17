@@ -1,102 +1,63 @@
-// ===== SUPABASE INIT =====
-const SUPABASE_URL = 'https://eyiniiiwjdkzxozqwwqi.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5aW5paWl3amRrenhvenF3d3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDY5MzcsImV4cCI6MjA4NjU4MjkzN30.mcl-KYDnOIVAZZWZtvIAvkphayrqFvjayQo9UVsRBI0';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-function handleStoreError(action, error) {
-    console.error(`Failed while ${action}:`, error);
-    showToast(`Could not ${action}.`);
+// ===== DATA LAYER (localStorage) =====
+function getLS(key) {
+    try {
+        return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch { return []; }
+}
+function setLS(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
 }
 
-// ===== DATA LAYER (Supabase) =====
 const Store = {
     async getWorkouts() {
-        const { data, error } = await supabase
-            .from('workouts')
-            .select('*')
-            .order('date', { ascending: false });
-        if (error) {
-            handleStoreError('loading workouts', error);
-            return [];
-        }
-        return data || [];
+        return getLS('ff_workouts');
     },
     async saveWorkout(w) {
-        const { error } = await supabase.from('workouts').insert(w);
-        if (error) {
-            handleStoreError('saving workout', error);
-            return false;
-        }
+        const list = getLS('ff_workouts');
+        list.unshift(w);
+        setLS('ff_workouts', list);
         return true;
     },
     async deleteWorkout(id) {
-        const { error } = await supabase.from('workouts').delete().eq('id', id);
-        if (error) {
-            handleStoreError('deleting workout', error);
-            return false;
-        }
+        const list = getLS('ff_workouts').filter(w => w.id !== id);
+        setLS('ff_workouts', list);
         return true;
     },
     async getCombat() {
-        const { data, error } = await supabase
-            .from('combat_sessions')
-            .select('*')
-            .order('date', { ascending: false });
-        if (error) {
-            handleStoreError('loading combat sessions', error);
-            return [];
-        }
-        return data || [];
+        return getLS('ff_combat');
     },
     async saveCombat(s) {
-        const { error } = await supabase.from('combat_sessions').insert(s);
-        if (error) {
-            handleStoreError('saving combat session', error);
-            return false;
-        }
+        const list = getLS('ff_combat');
+        list.unshift(s);
+        setLS('ff_combat', list);
         return true;
     },
     async deleteCombat(id) {
-        const { error } = await supabase.from('combat_sessions').delete().eq('id', id);
-        if (error) {
-            handleStoreError('deleting combat session', error);
-            return false;
-        }
+        const list = getLS('ff_combat').filter(s => s.id !== id);
+        setLS('ff_combat', list);
         return true;
     },
     async getGoals() {
-        const { data, error } = await supabase
-            .from('goals')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (error) {
-            handleStoreError('loading goals', error);
-            return [];
-        }
-        return data || [];
+        return getLS('ff_goals');
     },
     async saveGoal(g) {
-        const { error } = await supabase.from('goals').insert(g);
-        if (error) {
-            handleStoreError('saving goal', error);
-            return false;
-        }
+        const list = getLS('ff_goals');
+        list.unshift(g);
+        setLS('ff_goals', list);
         return true;
     },
     async updateGoal(id, updates) {
-        const { error } = await supabase.from('goals').update(updates).eq('id', id);
-        if (error) {
-            handleStoreError('updating goal', error);
-            return false;
+        const list = getLS('ff_goals');
+        const idx = list.findIndex(g => g.id === id);
+        if (idx !== -1) {
+            Object.assign(list[idx], updates);
+            setLS('ff_goals', list);
         }
         return true;
     },
     async deleteGoal(id) {
-        const { error } = await supabase.from('goals').delete().eq('id', id);
-        if (error) {
-            handleStoreError('deleting goal', error);
-            return false;
-        }
+        const list = getLS('ff_goals').filter(g => g.id !== id);
+        setLS('ff_goals', list);
         return true;
     },
 };
