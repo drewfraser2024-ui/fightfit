@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FightFit - Fitness & Combat Sports Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <h1 class="logo">FightFit</h1>
+            <div class="weekly-badge">
+                <span id="weekly-count">0</span>
+                <span class="badge-label">this week</span>
+            </div>
+        </header>
+
+        <!-- Pages -->
+        <main id="main-content">
+
+            <!-- ==================== WORKOUT LOG ==================== -->
+            <section id="page-workout" class="page active">
+                <h2>Workout Log</h2>
+
+                <form id="workout-form" class="card">
+                    <div class="form-group">
+                        <label for="workout-type">Workout Type</label>
+                        <select id="workout-type">
+                            <option value="strength">Strength Training</option>
+                            <option value="cardio">Cardio</option>
+                            <option value="flexibility">Flexibility / Yoga</option>
+                            <option value="hiit">HIIT</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div id="exercises-container">
+                        <div class="exercise-entry">
+                            <input type="text" placeholder="Exercise name" class="ex-name" required>
+                            <div class="ex-details">
+                                <input type="number" placeholder="Sets" class="ex-sets" min="0">
+                                <input type="number" placeholder="Reps" class="ex-reps" min="0">
+                                <input type="number" placeholder="Weight (lbs)" class="ex-weight" min="0">
+                                <input type="number" placeholder="Duration (min)" class="ex-duration" min="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" id="add-exercise-btn" class="btn-secondary">+ Add Exercise</button>
+
+                    <div class="form-group">
+                        <label for="workout-notes">Notes</label>
+                        <textarea id="workout-notes" rows="2" placeholder="How did it feel?"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Log Workout</button>
+                </form>
+
+                <h3>Recent Workouts</h3>
+                <div id="workout-history" class="history-list"></div>
+            </section>
+
+            <!-- ==================== COMBAT SPORTS ==================== -->
+            <section id="page-combat" class="page">
+                <h2>Combat Sports</h2>
+
+                <!-- Discipline Tabs -->
+                <div class="combat-tabs">
+                    <button class="combat-tab active" data-discipline="mma">MMA</button>
+                    <button class="combat-tab" data-discipline="muay-thai">Muay Thai</button>
+                    <button class="combat-tab" data-discipline="boxing">Boxing</button>
+                    <button class="combat-tab" data-discipline="bjj">BJJ</button>
+                </div>
+
+                <!-- Log Combat Session -->
+                <form id="combat-form" class="card">
+                    <input type="hidden" id="combat-discipline" value="mma">
+
+                    <div class="form-group">
+                        <label for="combat-session-type">Session Type</label>
+                        <select id="combat-session-type">
+                            <option value="technique">Technique Drills</option>
+                            <option value="sparring">Sparring</option>
+                            <option value="pad-work">Pad Work</option>
+                            <option value="bag-work">Bag Work</option>
+                            <option value="conditioning">Conditioning</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="combat-duration">Duration (min)</label>
+                        <input type="number" id="combat-duration" min="1" placeholder="60">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="combat-intensity">Intensity</label>
+                        <div class="intensity-picker">
+                            <button type="button" class="intensity-btn" data-val="1">1</button>
+                            <button type="button" class="intensity-btn" data-val="2">2</button>
+                            <button type="button" class="intensity-btn active" data-val="3">3</button>
+                            <button type="button" class="intensity-btn" data-val="4">4</button>
+                            <button type="button" class="intensity-btn" data-val="5">5</button>
+                        </div>
+                        <input type="hidden" id="combat-intensity" value="3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="combat-notes">Notes / Techniques Practiced</label>
+                        <textarea id="combat-notes" rows="2" placeholder="What did you work on?"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Log Session</button>
+                </form>
+
+                <!-- Spar Timer -->
+                <div class="card timer-card">
+                    <h3>Spar Timer</h3>
+                    <div class="timer-config">
+                        <div class="timer-setting">
+                            <label>Round Length</label>
+                            <div class="timer-adjust">
+                                <button type="button" class="adj-btn" data-target="round-length" data-dir="-1">-</button>
+                                <span id="round-length-display">3:00</span>
+                                <button type="button" class="adj-btn" data-target="round-length" data-dir="1">+</button>
+                            </div>
+                        </div>
+                        <div class="timer-setting">
+                            <label>Rest</label>
+                            <div class="timer-adjust">
+                                <button type="button" class="adj-btn" data-target="rest-length" data-dir="-1">-</button>
+                                <span id="rest-length-display">1:00</span>
+                                <button type="button" class="adj-btn" data-target="rest-length" data-dir="1">+</button>
+                            </div>
+                        </div>
+                        <div class="timer-setting">
+                            <label>Rounds</label>
+                            <div class="timer-adjust">
+                                <button type="button" class="adj-btn" data-target="num-rounds" data-dir="-1">-</button>
+                                <span id="num-rounds-display">3</span>
+                                <button type="button" class="adj-btn" data-target="num-rounds" data-dir="1">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="timer-display">
+                        <div id="timer-phase">READY</div>
+                        <div id="timer-clock">3:00</div>
+                        <div id="timer-round-info">Round 0 / 3</div>
+                    </div>
+
+                    <div class="timer-controls">
+                        <button type="button" id="timer-start" class="btn-primary">Start</button>
+                        <button type="button" id="timer-pause" class="btn-secondary" disabled>Pause</button>
+                        <button type="button" id="timer-reset" class="btn-secondary">Reset</button>
+                    </div>
+                </div>
+
+                <h3>Combat History</h3>
+                <div id="combat-history" class="history-list"></div>
+            </section>
+
+            <!-- ==================== GOALS & PROGRESS ==================== -->
+            <section id="page-goals" class="page">
+                <h2>Goals & Progress</h2>
+
+                <!-- Add Goal -->
+                <form id="goal-form" class="card">
+                    <div class="form-group">
+                        <label for="goal-title">Goal</label>
+                        <input type="text" id="goal-title" placeholder="e.g. Bench press 225 lbs" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="goal-target">Target Value</label>
+                            <input type="number" id="goal-target" placeholder="225" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="goal-unit">Unit</label>
+                            <input type="text" id="goal-unit" placeholder="lbs">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="goal-deadline">Target Date</label>
+                        <input type="date" id="goal-deadline">
+                    </div>
+                    <button type="submit" class="btn-primary">Add Goal</button>
+                </form>
+
+                <!-- Goals List -->
+                <div id="goals-list"></div>
+
+                <!-- Progress Overview -->
+                <div class="card">
+                    <h3>Progress Overview</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-total-workouts">0</div>
+                            <div class="stat-label">Total Workouts</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-this-week">0</div>
+                            <div class="stat-label">This Week</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-streak">0</div>
+                            <div class="stat-label">Day Streak</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-combat-sessions">0</div>
+                            <div class="stat-label">Combat Sessions</div>
+                        </div>
+                    </div>
+
+                    <h4>Weekly Activity</h4>
+                    <div class="week-chart" id="week-chart">
+                        <div class="day-bar" data-day="Mon"><div class="bar-fill"></div><span>Mon</span></div>
+                        <div class="day-bar" data-day="Tue"><div class="bar-fill"></div><span>Tue</span></div>
+                        <div class="day-bar" data-day="Wed"><div class="bar-fill"></div><span>Wed</span></div>
+                        <div class="day-bar" data-day="Thu"><div class="bar-fill"></div><span>Thu</span></div>
+                        <div class="day-bar" data-day="Fri"><div class="bar-fill"></div><span>Fri</span></div>
+                        <div class="day-bar" data-day="Sat"><div class="bar-fill"></div><span>Sat</span></div>
+                        <div class="day-bar" data-day="Sun"><div class="bar-fill"></div><span>Sun</span></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Nav -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-page="workout">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/></svg>
+                <span>Workout</span>
+            </button>
+            <button class="nav-btn" data-page="combat">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                <span>Combat</span>
+            </button>
+            <button class="nav-btn" data-page="goals">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+                <span>Goals</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
