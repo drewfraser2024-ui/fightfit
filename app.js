@@ -106,8 +106,31 @@ function uid() {
 }
 
 function formatDate(iso) {
-    const d = new Date(iso);
+    const d = parseDateSafe(iso);
+    if (!d) return 'Unknown date';
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function parseDateSafe(value) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function parseDateInputLocal(value) {
+    if (typeof value !== 'string') return parseDateSafe(value);
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+        const [, y, m, d] = match;
+        return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+    return parseDateSafe(value);
+}
+
+function toLocalDateKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 function escapeHtml(value) {
@@ -148,7 +171,13 @@ function showToast(msg) {
     }
     toast.textContent = msg;
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2000);
+    if (showToast.hideTimer) {
+        clearTimeout(showToast.hideTimer);
+    }
+    showToast.hideTimer = setTimeout(() => {
+        toast.classList.remove('show');
+        showToast.hideTimer = null;
+    }, 2000);
 }
 
 // ===== NAVIGATION =====
@@ -169,8 +198,14 @@ async function updateWeeklyCount() {
     const weekStart = getWeekStart();
     const workouts = await Store.getWorkouts();
     const combat = await Store.getCombat();
-    const thisWeekWorkouts = workouts.filter(w => new Date(w.date) >= weekStart);
-    const thisWeekCombat = combat.filter(s => new Date(s.date) >= weekStart);
+    const thisWeekWorkouts = workouts.filter(w => {
+        const d = parseDateSafe(w.date);
+        return d && d >= weekStart;
+    });
+    const thisWeekCombat = combat.filter(s => {
+        const d = parseDateSafe(s.date);
+        return d && d >= weekStart;
+    });
     document.getElementById('weekly-count').textContent = thisWeekWorkouts.length + thisWeekCombat.length;
 }
 
@@ -182,15 +217,23 @@ document.getElementById('add-exercise-btn').addEventListener('click', () => {
     const entry = document.createElement('div');
     entry.className = 'exercise-entry';
     entry.innerHTML = `
-        <input type="text" placeholder="Exercise name" class="ex-name" required>
+        <input type="text" placeholder="Exercise name" class="ex-name">
         <div class="ex-details">
             <input type="number" placeholder="Sets" class="ex-sets" min="0" inputmode="numeric">
             <input type="number" placeholder="Reps" class="ex-reps" min="0" inputmode="numeric">
             <input type="number" placeholder="Wt (lbs)" class="ex-weight" min="0" inputmode="numeric">
             <input type="number" placeholder="Min" class="ex-duration" min="0" inputmode="numeric">
         </div>
+        <button type="button" class="btn-danger remove-exercise-btn">Remove</button>
     `;
     exercisesContainer.appendChild(entry);
+});
+
+exercisesContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('.remove-exercise-btn');
+    if (!btn) return;
+    const entry = btn.closest('.exercise-entry');
+    if (entry) entry.remove();
 });
 
 workoutForm.addEventListener('submit', async (e) => {
@@ -203,14 +246,17 @@ workoutForm.addEventListener('submit', async (e) => {
         if (!name) return;
         exercises.push({
             name,
-            sets: parseInt(entry.querySelector('.ex-sets').value) || 0,
-            reps: parseInt(entry.querySelector('.ex-reps').value) || 0,
-            weight: parseInt(entry.querySelector('.ex-weight').value) || 0,
-            duration: parseInt(entry.querySelector('.ex-duration').value) || 0,
+            sets: Math.max(0, parseInt(entry.querySelector('.ex-sets').value, 10) || 0),
+            reps: Math.max(0, parseInt(entry.querySelector('.ex-reps').value, 10) || 0),
+            weight: Math.max(0, parseInt(entry.querySelector('.ex-weight').value, 10) || 0),
+            duration: Math.max(0, parseInt(entry.querySelector('.ex-duration').value, 10) || 0),
         });
     });
 
-    if (exercises.length === 0) return;
+    if (exercises.length === 0) {
+        showToast('Add at least one exercise name.');
+        return;
+    }
 
     const workout = {
         id: uid(),
@@ -226,12 +272,12 @@ workoutForm.addEventListener('submit', async (e) => {
 
     exercisesContainer.innerHTML = `
         <div class="exercise-entry">
-            <input type="text" placeholder="Exercise name" class="ex-name" required>
+            <input type="text" placeholder="Exercise name" class="ex-name">
             <div class="ex-details">
-                <input type="number" placeholder="Sets" class="ex-sets" min="0">
-                <input type="number" placeholder="Reps" class="ex-reps" min="0">
-                <input type="number" placeholder="Weight (lbs)" class="ex-weight" min="0">
-                <input type="number" placeholder="Duration (min)" class="ex-duration" min="0">
+                <input type="number" placeholder="Sets" class="ex-sets" min="0" inputmode="numeric">
+                <input type="number" placeholder="Reps" class="ex-reps" min="0" inputmode="numeric">
+                <input type="number" placeholder="Wt (lbs)" class="ex-weight" min="0" inputmode="numeric">
+                <input type="number" placeholder="Min" class="ex-duration" min="0" inputmode="numeric">
             </div>
         </div>
     `;
@@ -251,8 +297,10 @@ async function renderWorkoutHistory() {
     }
 
     container.innerHTML = workouts.slice(0, 20).map(w => {
-        const exList = (w.exercises || []).map(ex => {
-            let detail = escapeHtml(ex.name);
+        const exerciseItems = Array.isArray(w.exercises) ? w.exercises : [];
+        const exList = exerciseItems.map(rawExercise => {
+            const ex = rawExercise && typeof rawExercise === 'object' ? rawExercise : {};
+            let detail = escapeHtml(ex.name || 'Exercise');
             const sets = Number(ex.sets) || 0;
             const reps = Number(ex.reps) || 0;
             const weight = Number(ex.weight) || 0;
@@ -321,8 +369,8 @@ combatForm.addEventListener('submit', async (e) => {
         id: uid(),
         discipline: document.getElementById('combat-discipline').value,
         session_type: document.getElementById('combat-session-type').value,
-        duration: parseInt(document.getElementById('combat-duration').value) || 0,
-        intensity: parseInt(document.getElementById('combat-intensity').value),
+        duration: Math.max(0, parseInt(document.getElementById('combat-duration').value, 10) || 0),
+        intensity: Math.min(5, Math.max(1, parseInt(document.getElementById('combat-intensity').value, 10) || 3)),
         notes: document.getElementById('combat-notes').value.trim(),
         date: new Date().toISOString(),
     };
@@ -334,7 +382,8 @@ combatForm.addEventListener('submit', async (e) => {
     document.getElementById('combat-discipline').value = activeDiscipline;
     document.getElementById('combat-intensity').value = '3';
     document.querySelectorAll('.intensity-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector('.intensity-btn[data-val="3"]').classList.add('active');
+    const defaultIntensityBtn = document.querySelector('.intensity-btn[data-val="3"]');
+    if (defaultIntensityBtn) defaultIntensityBtn.classList.add('active');
 
     await renderCombatHistory();
     updateWeeklyCount();
@@ -357,7 +406,7 @@ async function renderCombatHistory() {
         const disciplineClass = sanitizeClassToken(s.discipline);
         const sessionNotes = escapeHtml(s.notes);
         const duration = Number(s.duration) || 0;
-        const intensity = Number(s.intensity) || 0;
+        const intensity = Math.min(5, Math.max(1, Number(s.intensity) || 3));
 
         return `
             <div class="history-item">
@@ -524,6 +573,9 @@ function getAudioCtx() {
 function playTone(freq, duration, count = 1) {
     const ctx = getAudioCtx();
     if (!ctx) return;
+    if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+    }
     for (let i = 0; i < count; i++) {
         setTimeout(() => {
             try {
@@ -585,8 +637,9 @@ async function renderGoals() {
         const current = Number(g.current) || 0;
         const target = Number(g.target) || 0;
         const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
-        const deadlineText = g.deadline
-            ? `Target: ${new Date(g.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+        const deadlineDate = g.deadline ? parseDateInputLocal(g.deadline) : null;
+        const deadlineText = deadlineDate
+            ? `Target: ${deadlineDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
             : '';
         const goalId = escapeHtml(g.id);
         const goalTitle = escapeHtml(g.title);
@@ -682,8 +735,14 @@ async function refreshStats() {
     const combat = await Store.getCombat();
     const weekStart = getWeekStart();
 
-    const thisWeekWorkouts = workouts.filter(w => new Date(w.date) >= weekStart);
-    const thisWeekCombat = combat.filter(s => new Date(s.date) >= weekStart);
+    const thisWeekWorkouts = workouts.filter(w => {
+        const d = parseDateSafe(w.date);
+        return d && d >= weekStart;
+    });
+    const thisWeekCombat = combat.filter(s => {
+        const d = parseDateSafe(s.date);
+        return d && d >= weekStart;
+    });
     const thisWeekTotal = thisWeekWorkouts.length + thisWeekCombat.length;
 
     document.getElementById('stat-total-workouts').textContent = workouts.length + combat.length;
@@ -691,23 +750,27 @@ async function refreshStats() {
     document.getElementById('stat-combat-sessions').textContent = combat.length;
 
     // Calculate streak
-    const allDates = [...workouts, ...combat]
-        .map(w => new Date(w.date).toDateString())
-        .filter((v, i, a) => a.indexOf(v) === i)
-        .sort((a, b) => new Date(b) - new Date(a));
+    const allDateKeys = new Set(
+        [...workouts, ...combat]
+            .map(w => {
+                const d = parseDateSafe(w.date);
+                if (!d) return null;
+                d.setHours(0, 0, 0, 0);
+                return toLocalDateKey(d);
+            })
+            .filter(Boolean)
+    );
 
     let streak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    if (!allDateKeys.has(toLocalDateKey(cursor))) {
+        cursor.setDate(cursor.getDate() - 1);
+    }
 
-    for (let i = 0; i < 365; i++) {
-        const check = new Date(today);
-        check.setDate(check.getDate() - i);
-        if (allDates.includes(check.toDateString())) {
-            streak++;
-        } else if (i > 0) {
-            break;
-        }
+    while (streak < 365 && allDateKeys.has(toLocalDateKey(cursor))) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
     }
     document.getElementById('stat-streak').textContent = streak;
 
@@ -715,7 +778,9 @@ async function refreshStats() {
     const dayCountMap = {};
     const allThisWeek = [...thisWeekWorkouts, ...thisWeekCombat];
     allThisWeek.forEach(w => {
-        const day = getDayName(w.date);
+        const d = parseDateSafe(w.date);
+        if (!d) return;
+        const day = getDayName(d);
         dayCountMap[day] = (dayCountMap[day] || 0) + 1;
     });
 
@@ -733,12 +798,17 @@ async function refreshStats() {
 
 // ===== INIT =====
 async function init() {
-    await Promise.all([
-        renderWorkoutHistory(),
-        renderCombatHistory(),
-        renderGoals(),
-        updateWeeklyCount(),
-    ]);
+    try {
+        await Promise.all([
+            renderWorkoutHistory(),
+            renderCombatHistory(),
+            renderGoals(),
+            updateWeeklyCount(),
+        ]);
+    } catch (error) {
+        console.error('Initialization failed:', error);
+        showToast('Could not load app data.');
+    }
     updateTimerDisplay();
 }
 

@@ -273,6 +273,12 @@ input[type="date"] {
     margin-bottom: 8px;
 }
 
+.remove-exercise-btn {
+    margin-top: 8px;
+    margin-left: auto;
+    display: block;
+}
+
 .ex-details {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
